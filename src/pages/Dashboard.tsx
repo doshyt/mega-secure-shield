@@ -73,7 +73,7 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase.functions.invoke('vault-list');
       if (error) throw error;
-      setVaults(data || []);
+      setVaults(data?.vaults || []);
     } catch (error) {
       toast({
         title: "Error fetching vaults",
