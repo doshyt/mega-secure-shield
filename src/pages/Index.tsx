@@ -15,8 +15,8 @@ const Index = () => {
             <span className="text-xl font-bold text-foreground">Mega Secure App</span>
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost">Login</Button>
-            <Button variant="hero">Get Started</Button>
+            <Button variant="ghost" onClick={() => window.location.href = '/auth'}>Login</Button>
+            <Button variant="hero" onClick={() => window.location.href = '/auth'}>Get Started</Button>
           </div>
         </nav>
       </header>
@@ -38,10 +38,10 @@ const Index = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="hero" size="lg" className="shadow-glow">
+              <Button variant="hero" size="lg" className="shadow-glow" onClick={() => window.location.href = '/auth'}>
                 Start Free Trial
               </Button>
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" onClick={() => window.location.href = '/auth'}>
                 Watch Demo
               </Button>
             </div>
@@ -134,10 +134,10 @@ const Index = () => {
             Join thousands of companies that trust Mega Secure App to protect their digital assets.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="hero" size="lg" className="shadow-glow">
+            <Button variant="hero" size="lg" className="shadow-glow" onClick={() => window.location.href = '/auth'}>
               Start Your Free Trial
             </Button>
-            <Button variant="security" size="lg">
+            <Button variant="security" size="lg" onClick={() => window.location.href = '/auth'}>
               Contact Sales
             </Button>
           </div>
