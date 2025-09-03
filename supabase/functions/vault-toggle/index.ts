@@ -37,11 +37,18 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
+      console.log('🚫 [VAULT-TOGGLE] Authentication failed:', { authError, hasUser: !!user });
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('🔐 [VAULT-TOGGLE] Function invoked by user:', {
+      userId: user.id,
+      userEmail: user.email,
+      timestamp: new Date().toISOString()
+    });
 
     const { vault_id } = await req.json();
 
@@ -69,12 +76,33 @@ serve(async (req) => {
     const userRoles = roles?.map(r => r.role) || [];
     const canToggleVault = userRoles.includes('admin') || userRoles.includes('vault_user');
 
+    console.log('👤 [VAULT-TOGGLE] User context and roles:', {
+      userId: user.id,
+      userEmail: user.email,
+      userRoles: userRoles,
+      canToggleVault: canToggleVault,
+      requestedVault: vault_id,
+      requiredRoles: ['admin', 'vault_user']
+    });
+
     if (!canToggleVault) {
+      console.log('❌ [VAULT-TOGGLE] ACCESS DENIED - Toggle vault:', {
+        userId: user.id,
+        userRoles: userRoles,
+        requiredRoles: ['admin', 'vault_user'],
+        hasPermission: false
+      });
       return new Response(JSON.stringify({ error: 'Insufficient permissions to toggle vault' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('✅ [VAULT-TOGGLE] ACCESS GRANTED - Toggle vault permissions check passed:', {
+      userId: user.id,
+      userRoles: userRoles,
+      operation: 'toggle_vault'
+    });
 
     // Get current vault state
     const { data: vault, error: fetchError } = await supabaseAdmin
@@ -94,12 +122,34 @@ serve(async (req) => {
     const isOwner = vault.owner_id === user.id;
     const isAdmin = userRoles.includes('admin');
 
+    console.log('🔑 [VAULT-TOGGLE] Ownership check:', {
+      userId: user.id,
+      vaultOwnerId: vault.owner_id,
+      isOwner: isOwner,
+      isAdmin: isAdmin,
+      vaultId: vault_id
+    });
+
     if (!isOwner && !isAdmin) {
+      console.log('❌ [VAULT-TOGGLE] ACCESS DENIED - Not owner or admin:', {
+        userId: user.id,
+        vaultOwnerId: vault.owner_id,
+        isOwner: isOwner,
+        isAdmin: isAdmin,
+        hasPermission: false
+      });
       return new Response(JSON.stringify({ error: 'You can only toggle your own vaults' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('✅ [VAULT-TOGGLE] FINAL ACCESS GRANTED - Toggle vault:', {
+      userId: user.id,
+      isOwner: isOwner,
+      isAdmin: isAdmin,
+      operation: 'toggle_vault_final'
+    });
 
     // Toggle vault state
     const { data: updatedVault, error: updateError } = await supabaseAdmin

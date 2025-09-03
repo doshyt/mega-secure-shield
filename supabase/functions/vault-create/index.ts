@@ -40,11 +40,18 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
+      console.log('🚫 [VAULT-CREATE] Authentication failed:', { authError, hasUser: !!user });
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('🔐 [VAULT-CREATE] Function invoked by user:', {
+      userId: user.id,
+      userEmail: user.email,
+      timestamp: new Date().toISOString()
+    });
 
     // Check if user has admin or vault_user role
     const { data: roles, error: roleError } = await supabaseAdmin
@@ -63,12 +70,32 @@ serve(async (req) => {
     const userRoles = roles?.map(r => r.role) || [];
     const canCreateVault = userRoles.includes('admin') || userRoles.includes('vault_user');
 
+    console.log('👤 [VAULT-CREATE] User context and roles:', {
+      userId: user.id,
+      userEmail: user.email,
+      userRoles: userRoles,
+      canCreateVault: canCreateVault,
+      requiredRoles: ['admin', 'vault_user']
+    });
+
     if (!canCreateVault) {
+      console.log('❌ [VAULT-CREATE] ACCESS DENIED - Create vault:', {
+        userId: user.id,
+        userRoles: userRoles,
+        requiredRoles: ['admin', 'vault_user'],
+        hasPermission: false
+      });
       return new Response(JSON.stringify({ error: 'Insufficient permissions to create vault' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('✅ [VAULT-CREATE] ACCESS GRANTED - Create vault:', {
+      userId: user.id,
+      userRoles: userRoles,
+      operation: 'create_vault'
+    });
 
     // Get request body
     const { name, description } = await req.json();

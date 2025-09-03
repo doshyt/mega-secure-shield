@@ -37,11 +37,18 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
+      console.log('🚫 [USER-MANAGEMENT] Authentication failed:', { authError, hasUser: !!user });
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('🔐 [USER-MANAGEMENT] Function invoked by user:', {
+      userId: user.id,
+      userEmail: user.email,
+      timestamp: new Date().toISOString()
+    });
 
     const method = req.method;
     const url = new URL(req.url);
@@ -64,14 +71,35 @@ serve(async (req) => {
     const userRoles = roles?.map(r => r.role) || [];
     const isAdmin = userRoles.includes('admin');
 
+    console.log('👤 [USER-MANAGEMENT] User context and roles:', {
+      userId: user.id,
+      userEmail: user.email,
+      userRoles: userRoles,
+      isAdmin: isAdmin,
+      requestedAction: action,
+      method: method
+    });
+
     if (method === 'GET' && action === 'list') {
       // Only admins can list all users
       if (!isAdmin) {
+        console.log('❌ [USER-MANAGEMENT] ACCESS DENIED - List users:', {
+          userId: user.id,
+          userRoles: userRoles,
+          requiredRole: 'admin',
+          hasPermission: false
+        });
         return new Response(JSON.stringify({ error: 'Admin access required' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      console.log('✅ [USER-MANAGEMENT] ACCESS GRANTED - List users:', {
+        userId: user.id,
+        userRoles: userRoles,
+        operation: 'list_users'
+      });
 
       const { data: profiles, error: profilesError } = await supabaseAdmin
         .from('profiles')
@@ -96,11 +124,23 @@ serve(async (req) => {
     if (method === 'POST' && action === 'assign-role') {
       // Only admins can assign roles
       if (!isAdmin) {
+        console.log('❌ [USER-MANAGEMENT] ACCESS DENIED - Assign role:', {
+          userId: user.id,
+          userRoles: userRoles,
+          requiredRole: 'admin',
+          hasPermission: false
+        });
         return new Response(JSON.stringify({ error: 'Admin access required' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      console.log('✅ [USER-MANAGEMENT] ACCESS GRANTED - Assign role:', {
+        userId: user.id,
+        userRoles: userRoles,
+        operation: 'assign_role'
+      });
 
       const { user_id, role } = await req.json();
 
@@ -149,11 +189,23 @@ serve(async (req) => {
     if (method === 'DELETE' && action === 'remove-role') {
       // Only admins can remove roles
       if (!isAdmin) {
+        console.log('❌ [USER-MANAGEMENT] ACCESS DENIED - Remove role:', {
+          userId: user.id,
+          userRoles: userRoles,
+          requiredRole: 'admin',
+          hasPermission: false
+        });
         return new Response(JSON.stringify({ error: 'Admin access required' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      console.log('✅ [USER-MANAGEMENT] ACCESS GRANTED - Remove role:', {
+        userId: user.id,
+        userRoles: userRoles,
+        operation: 'remove_role'
+      });
 
       const { user_id, role } = await req.json();
 

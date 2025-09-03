@@ -37,11 +37,18 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
+      console.log('🚫 [VAULT-LIST] Authentication failed:', { authError, hasUser: !!user });
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('🔐 [VAULT-LIST] Function invoked by user:', {
+      userId: user.id,
+      userEmail: user.email,
+      timestamp: new Date().toISOString()
+    });
 
     // Get user roles
     const { data: roles, error: roleError } = await supabaseAdmin
@@ -60,12 +67,29 @@ serve(async (req) => {
     const userRoles = roles?.map(r => r.role) || [];
     const isAdmin = userRoles.includes('admin');
 
+    console.log('👤 [VAULT-LIST] User context and roles:', {
+      userId: user.id,
+      userEmail: user.email,
+      userRoles: userRoles,
+      isAdmin: isAdmin,
+      operation: 'list_vaults'
+    });
+
     // Get vaults based on role
     let query = supabaseAdmin.from('vaults').select('*');
     
     if (!isAdmin) {
       // Non-admin users can only see their own vaults
+      console.log('🔒 [VAULT-LIST] Filtering to user-owned vaults only (non-admin):', {
+        userId: user.id,
+        userRoles: userRoles
+      });
       query = query.eq('owner_id', user.id);
+    } else {
+      console.log('🔓 [VAULT-LIST] Admin access - showing all vaults:', {
+        userId: user.id,
+        userRoles: userRoles
+      });
     }
 
     const { data: vaults, error: vaultError } = await query;

@@ -37,11 +37,20 @@ serve(async (req) => {
     );
 
     if (authError || !user) {
+      console.log('🚫 [VAULT-SECRETS] Authentication failed:', { authError, hasUser: !!user });
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('🔐 [VAULT-SECRETS] Function invoked by user:', {
+      userId: user.id,
+      userEmail: user.email,
+      method: method,
+      requestedVault: vault_id,
+      timestamp: new Date().toISOString()
+    });
 
     const method = req.method;
     const url = new URL(req.url);
@@ -70,6 +79,14 @@ serve(async (req) => {
 
     const userRoles = roles?.map(r => r.role) || [];
 
+    console.log('👤 [VAULT-SECRETS] User context and roles:', {
+      userId: user.id,
+      userEmail: user.email,
+      userRoles: userRoles,
+      method: method,
+      requestedVault: vault_id
+    });
+
     // Check vault access
     const { data: vault, error: vaultError } = await supabaseAdmin
       .from('vaults')
@@ -88,15 +105,51 @@ serve(async (req) => {
     const isAdmin = userRoles.includes('admin');
     const isVaultUser = userRoles.includes('vault_user');
 
+    console.log('🏦 [VAULT-SECRETS] Vault access analysis:', {
+      userId: user.id,
+      vaultId: vault_id,
+      vaultOwnerId: vault.owner_id,
+      vaultIsOpen: vault.is_open,
+      isOwner: isOwner,
+      isAdmin: isAdmin,
+      isVaultUser: isVaultUser,
+      hasViewer: userRoles.includes('viewer'),
+      userRoles: userRoles
+    });
+
     // Handle different methods
     if (method === 'GET') {
       // All authenticated users can view secrets if they have access to the vault
-      if (!isOwner && !isAdmin && !userRoles.includes('viewer') && !isVaultUser) {
+      const hasVaultAccess = isOwner || isAdmin || userRoles.includes('viewer') || isVaultUser;
+      
+      console.log('👀 [VAULT-SECRETS] GET request access check:', {
+        userId: user.id,
+        hasVaultAccess: hasVaultAccess,
+        isOwner: isOwner,
+        isAdmin: isAdmin,
+        hasViewer: userRoles.includes('viewer'),
+        isVaultUser: isVaultUser
+      });
+
+      if (!hasVaultAccess) {
+        console.log('❌ [VAULT-SECRETS] ACCESS DENIED - View secrets:', {
+          userId: user.id,
+          userRoles: userRoles,
+          vaultId: vault_id,
+          hasPermission: false,
+          reason: 'No vault access'
+        });
         return new Response(JSON.stringify({ error: 'No access to this vault' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      console.log('✅ [VAULT-SECRETS] ACCESS GRANTED - View secrets:', {
+        userId: user.id,
+        userRoles: userRoles,
+        operation: 'view_secrets'
+      });
 
       const { data: secrets, error: secretsError } = await supabaseAdmin
         .from('vault_secrets')
@@ -118,7 +171,21 @@ serve(async (req) => {
 
     if (method === 'POST') {
       // Only vault_users and admins can add secrets, and vault must be open
+      console.log('➕ [VAULT-SECRETS] POST request access check:', {
+        userId: user.id,
+        canAddSecrets: isVaultUser || isAdmin,
+        isVaultUser: isVaultUser,
+        isAdmin: isAdmin,
+        vaultIsOpen: vault.is_open
+      });
+
       if (!isVaultUser && !isAdmin) {
+        console.log('❌ [VAULT-SECRETS] ACCESS DENIED - Add secrets (insufficient permissions):', {
+          userId: user.id,
+          userRoles: userRoles,
+          requiredRoles: ['vault_user', 'admin'],
+          hasPermission: false
+        });
         return new Response(JSON.stringify({ error: 'Insufficient permissions to add secrets' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -126,11 +193,23 @@ serve(async (req) => {
       }
 
       if (!vault.is_open) {
+        console.log('❌ [VAULT-SECRETS] ACCESS DENIED - Add secrets (vault closed):', {
+          userId: user.id,
+          userRoles: userRoles,
+          vaultIsOpen: vault.is_open,
+          reason: 'Vault must be open'
+        });
         return new Response(JSON.stringify({ error: 'Vault must be open to add secrets' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      console.log('✅ [VAULT-SECRETS] ACCESS GRANTED - Add secrets:', {
+        userId: user.id,
+        userRoles: userRoles,
+        operation: 'add_secret'
+      });
 
       const { key, value, secret_type = 'text' } = await req.json();
 
